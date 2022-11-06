@@ -8,29 +8,63 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends Activity implements SensorEventListener {
 
     SensorManager manageSensors;
     Sensor accelerometerSensor;
-
+    long timeStart;
+    long frameSwitched;
+    List<Frame> allFrames;
+    Frame tempFrame;
     @Override
     public void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        allFrames = new ArrayList<>();
+        tempFrame = new Frame();
 
         manageSensors = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        accelerometerSensor = manageSensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        manageSensors.registerListener(MainActivity.this, accelerometerSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        accelerometerSensor = manageSensors.getDefaultSensor(Sensor.TYPE_LIGHT);
+        manageSensors.registerListener(MainActivity.this, accelerometerSensor, SensorManager.SENSOR_DELAY_FASTEST);
+        timeStart = System.currentTimeMillis();
+        frameSwitched = 0;
     }
 
     @Override
     public void onSensorChanged(SensorEvent sensorChanged) {
-        float[] tempHolder = sensorChanged.values;
-        if(tempHolder[0] > 0){
-            System.out.println("Change of: " + tempHolder[0] + " detected");
+        long measurementTimestamp = System.currentTimeMillis() - timeStart;
+        //System.out.println("Time: " + measurementTimestamp);
+        //System.out.println("Frame Switched Difference: " + (measurementTimestamp - frameSwitched) / 1000);
+        if( ((measurementTimestamp - frameSwitched) / 1000) >= 4){
+            frameSwitched = measurementTimestamp;
+            allFrames.add(tempFrame);
+            tempFrame = new Frame();
         }
+        float[] tempHolder = sensorChanged.values;
+        //System.out.println("Measurement Collected");
+        frameMeasurement tempFrameRecording = new frameMeasurement();
+        tempFrameRecording.measurement = tempHolder[0];
+        tempFrameRecording.timestamp = measurementTimestamp;
+        tempFrame.addFrameMeasurement(tempFrameRecording);
+        if(allFrames.size() == 3){
+            System.out.println("allFrames Length: " + allFrames.size());
+            for(Frame frame : allFrames){
+                List<frameMeasurement> tempMeasurements = frame.getFrameMeasurements();
+                System.out.println("Frame Measurements Length: " + frame.getFrameMeasurementLength());
+                for(frameMeasurement individualMeasurement : tempMeasurements){
+                    System.out.println("Measurement: " + individualMeasurement.measurement);
+                    System.out.println("Timestamp: " + individualMeasurement.timestamp);
+                }
+            }
+            System.exit(1);
+        }
+
+        /*if(tempHolder[0] > 0){
+            System.out.println("Change of: " + tempHolder[0] + " detected");
+        }*/
 
     }
 
@@ -39,3 +73,4 @@ public class MainActivity extends Activity implements SensorEventListener {
 
     }
 }
+
