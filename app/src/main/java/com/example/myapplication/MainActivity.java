@@ -1,12 +1,16 @@
 package com.example.myapplication;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +23,9 @@ public class MainActivity extends Activity implements SensorEventListener {
     long frameSwitched;
     List<Frame> allFrames;
     Frame tempFrame;
+
+    private static int MICROPHONE_PERMISSION_CODE = 200;
+
     @Override
     public void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
@@ -31,6 +38,10 @@ public class MainActivity extends Activity implements SensorEventListener {
         manageSensors.registerListener(MainActivity.this, accelerometerSensor, SensorManager.SENSOR_DELAY_FASTEST);
         timeStart = System.currentTimeMillis();
         frameSwitched = 0;
+
+        if (isMicrophoneOn()) {
+            getMicrophonePermission();
+        }
     }
 
     @Override
@@ -71,6 +82,20 @@ public class MainActivity extends Activity implements SensorEventListener {
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
+    }
+
+    private boolean isMicrophoneOn() {
+        if (this.getPackageManager().hasSystemFeature(PackageManager.FEATURE_MICROPHONE)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    private void getMicrophonePermission() {
+        if(ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_DENIED) {
+            ActivityCompat.requestPermissions(this, new String[] {Manifest.permission.RECORD_AUDIO}, MICROPHONE_PERMISSION_CODE);
+        }
     }
 }
 
