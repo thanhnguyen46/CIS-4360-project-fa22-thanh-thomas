@@ -65,19 +65,22 @@ public class MainActivity extends Activity implements SensorEventListener {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        /*allFrames = new ArrayList<>();
+        allFrames = new ArrayList<>();
         tempFrame = new Frame();
 
         manageSensors = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         accelerometerSensor = manageSensors.getDefaultSensor(Sensor.TYPE_LIGHT);
-        manageSensors.registerListener(MainActivity.this, accelerometerSensor, SensorManager.SENSOR_DELAY_FASTEST);*/
+        manageSensors.registerListener(MainActivity.this, accelerometerSensor, SensorManager.SENSOR_DELAY_FASTEST);
 
-        audioSampleSize = AudioRecord.getMinBufferSize(6000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.CHANNEL_IN_DEFAULT);
+        audioSampleSize = AudioRecord.getMinBufferSize(6000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+        System.out.println("Audio Size: " + audioSampleSize);
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            System.out.println("Permission?");
             return;
         }
+
         audioSampleHolder = new short[audioSampleSize];
-        microphoneRecorder = new AudioRecord(MediaRecorder.AudioSource.MIC, 6000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.CHANNEL_IN_DEFAULT, audioSampleSize);
+        microphoneRecorder = new AudioRecord(MediaRecorder.AudioSource.MIC, 6000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, audioSampleSize);
         microphoneRecorder.startRecording();
         Thread microphoneThread = new Thread(microphoneRecordingandAnalysis);
         microphoneThread.start();
@@ -85,7 +88,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 
     @Override
     public void onSensorChanged(SensorEvent sensorChanged) {
-        /*if(!started){
+        if(!started){
             started = true;
             timeStart = System.currentTimeMillis();
             System.out.println("STARTED!!!!");
@@ -93,7 +96,7 @@ public class MainActivity extends Activity implements SensorEventListener {
         long measurementTimestamp = System.currentTimeMillis() - timeStart;
         //System.out.println("Time: " + measurementTimestamp);
         //System.out.println("Frame Switched Difference: " + (measurementTimestamp - frameSwitched) / 1000);
-        if (((measurementTimestamp - frameSwitched) / 1000) >= 4) {
+        if (((measurementTimestamp - frameSwitched) / 1000) >= 1) {
             frameSwitched = measurementTimestamp;
             allFrames.add(tempFrame);
             List<frameMeasurement> tempMeasurements = tempFrame.getFrameMeasurements();
@@ -203,7 +206,7 @@ public class MainActivity extends Activity implements SensorEventListener {
         tempFrameRecording.measurement = tempHolder[0];
         tempFrameRecording.timestamp = measurementTimestamp;
         tempFrame.addFrameMeasurement(tempFrameRecording);
-        if (allFrames.size() == 10) {
+        /*if (allFrames.size() == 10) {
             System.out.println("allFrames Length: " + allFrames.size());
             for (Frame frame : allFrames) {
                 System.out.println("New Frame");
@@ -243,7 +246,8 @@ public class MainActivity extends Activity implements SensorEventListener {
             double[] FFToutput = new double[audioSampleHolder.length];
             tempAudioFrame = new Frame();
             int totalValues = 0;
-            while (measurementTimestamp < 5000) {
+            //while (measurementTimestamp < 5000) {
+            while(true){
                 System.out.println("TIME: " + measurementTimestamp);
                 measurementTimestamp = System.currentTimeMillis() - timeStart;
                 if ( (totalValues % 4096) == 0 ) {
@@ -263,7 +267,7 @@ public class MainActivity extends Activity implements SensorEventListener {
                                 increaseCounter = increaseCounter + (tempMeasurements.get(x).measurement - prevMeasurement);
                                 if(increaseCounter > 1500){
                                     System.out.println("CLOSE STEP DETECTED");
-                                    double[] input = new double[16];
+                                    /*double[] input = new double[16];
                                     double[] output = new double[16];
                                     int inputIndex = 0;
                                     for(int y = x; y < x+16; y++){
@@ -274,7 +278,7 @@ public class MainActivity extends Activity implements SensorEventListener {
                                     theFourierTransform.fft(input, output);
                                     for(int index = 0; index < 16; index++){
                                         System.out.println(output[index]);
-                                    }
+                                    }*/
 
                                     runOnUiThread(() -> {
                                         @SuppressLint({"MissingInflatedId", "LocalSuppress"}) ConstraintLayout gotYourBackLayout = findViewById(R.id.appScreenID);
@@ -283,7 +287,7 @@ public class MainActivity extends Activity implements SensorEventListener {
                                 }
                                 if( (increaseCounter > 1000) && (increaseCounter < 1500) ){
                                     System.out.println("MEDIUM STEP DETECTED");
-                                    double[] input = new double[16];
+                                    /*double[] input = new double[16];
                                     double[] output = new double[16];
                                     int inputIndex = 0;
                                     for(int y = x; y < x+16; y++){
@@ -294,15 +298,15 @@ public class MainActivity extends Activity implements SensorEventListener {
                                     theFourierTransform.fft(input, output);
                                     for(int index = 0; index < 16; index++){
                                         System.out.println(output[index]);
-                                    }
+                                    }*/
                                     runOnUiThread(() -> {
                                         @SuppressLint({"MissingInflatedId", "LocalSuppress"}) ConstraintLayout gotYourBackLayout = findViewById(R.id.appScreenID);
                                         gotYourBackLayout.setBackgroundColor(Color.YELLOW);
                                     });
                                 }
-                                if( (increaseCounter > 500) && (increaseCounter < 1000) ){
+                                /*if( (increaseCounter > 500) && (increaseCounter < 1000) ){
                                     System.out.println("FAR STEP DETECTED");
-                                    double[] input = new double[16];
+                                    /*double[] input = new double[16];
                                     double[] output = new double[16];
                                     int inputIndex = 0;
                                     for(int y = x; y < x+16; y++){
@@ -318,7 +322,7 @@ public class MainActivity extends Activity implements SensorEventListener {
                                         @SuppressLint({"MissingInflatedId", "LocalSuppress"}) ConstraintLayout gotYourBackLayout = findViewById(R.id.appScreenID);
                                         gotYourBackLayout.setBackgroundColor(Color.GREEN);
                                     });
-                                }
+                                }*/
                             }
                             else{
                                 increaseCounter = 0;
