@@ -19,6 +19,7 @@ import android.os.Bundle;
 
 import android.media.MediaRecorder;
 import android.os.ParcelFileDescriptor;
+import android.provider.MediaStore;
 
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.ActivityCompat;
@@ -32,41 +33,59 @@ import java.io.InputStream;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
+import java.sql.Time;
 import java.util.ArrayList;
 import java.util.List;
+import com.example.myapplication.FFT;
 
 public class MainActivity extends Activity implements SensorEventListener {
 
-    final MediaRecorder microphoneRecorder = new MediaRecorder();
+    AudioRecord microphoneRecorder;
+    int audioSampleSize;
+
+
     SensorManager manageSensors;
     Sensor accelerometerSensor;
     long timeStart;
     long frameSwitched;
+    long audioFrameSwitched;
     List<Frame> allFrames;
+    List<Frame> audioFrames;
     Frame tempFrame;
+    Frame tempAudioFrame;
     boolean started = false;
     frameMeasurement theDecrease = null;
     int theCount = 0;
     frameMeasurement maxMeasurement = null;
 
+    short[] audioSampleHolder;
+
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        allFrames = new ArrayList<>();
+        /*allFrames = new ArrayList<>();
         tempFrame = new Frame();
 
         manageSensors = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         accelerometerSensor = manageSensors.getDefaultSensor(Sensor.TYPE_LIGHT);
-        manageSensors.registerListener(MainActivity.this, accelerometerSensor, SensorManager.SENSOR_DELAY_FASTEST);
-        frameSwitched = 0;
+        manageSensors.registerListener(MainActivity.this, accelerometerSensor, SensorManager.SENSOR_DELAY_FASTEST);*/
 
-
+        audioSampleSize = AudioRecord.getMinBufferSize(6000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.CHANNEL_IN_DEFAULT);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        audioSampleHolder = new short[audioSampleSize];
+        microphoneRecorder = new AudioRecord(MediaRecorder.AudioSource.MIC, 6000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.CHANNEL_IN_DEFAULT, audioSampleSize);
+        microphoneRecorder.startRecording();
+        Thread microphoneThread = new Thread(microphoneRecordingandAnalysis);
+        microphoneThread.start();
     }
 
     @Override
     public void onSensorChanged(SensorEvent sensorChanged) {
-        if(!started){
+        /*if(!started){
             started = true;
             timeStart = System.currentTimeMillis();
             System.out.println("STARTED!!!!");
@@ -131,19 +150,6 @@ public class MainActivity extends Activity implements SensorEventListener {
                                 }
 
                             }
-                            /*if( (theCount >= 2) && (theCount <=3) ){
-                                System.out.println("Subtraction 2: " + ( (tempMeasurements.get(x).measurement) - (prevTempMeasurements.get(prevTempMeasurements.size()-1).measurement) ));
-                                if( ( (tempMeasurements.get(x).measurement) - (prevTempMeasurements.get(prevTempMeasurements.size()-1).measurement) ) > 28 ){
-                                    System.out.println("STEP DETECTED!!!!");
-                                    theCount = 0;
-                                    theDecrease = null;
-                                }
-                            }
-                            /*if(theCount > 3){
-                                theCount = 0;
-                                theDecrease = null;
-                            }*/
-                            //initialLight = tempMeasurements.get(x);
                         }
                     }
                 }
@@ -186,19 +192,6 @@ public class MainActivity extends Activity implements SensorEventListener {
                             }
 
                         }
-                        /*if( (theCount >= 2) && (theCount <=3) ){
-                            System.out.println("Subtraction 2: " + ( (tempMeasurements.get(x).measurement) - (tempMeasurements.get(x-1).measurement) ));
-                            if( ( (tempMeasurements.get(x).measurement) - (tempMeasurements.get(x-1).measurement) ) > 28 ){
-                                System.out.println("STEP DETECTED!!!!");
-                                theCount = 0;
-                                theDecrease = null;
-                            }
-                        }
-                        if(theCount > 3){
-                            theCount = 0;
-                            theDecrease = null;
-                        }*/
-                        //initialLight = tempMeasurements.get(x);
                     }
                 }
             }
@@ -222,7 +215,7 @@ public class MainActivity extends Activity implements SensorEventListener {
             }
 
             System.exit(1);
-        }
+        }*/
 
         /*if(tempHolder[0] > 0){
             System.out.println("Change of: " + tempHolder[0] + " detected");
@@ -230,9 +223,159 @@ public class MainActivity extends Activity implements SensorEventListener {
 
     }
 
+    Runnable microphoneRecordingandAnalysis = new Runnable(){
+        public void run() {
+            audioFrames = new ArrayList<>();
+            audioFrameSwitched = 0;
+
+
+            timeStart = System.currentTimeMillis();
+            double audioTime = 0;
+            long measurementTimestamp = System.currentTimeMillis() - timeStart;
+            System.out.println("Initial Timestamp: " + measurementTimestamp);
+            System.out.println("STARTED!!!!");
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            double[] FFTinput = new double[audioSampleHolder.length];
+            double[] FFToutput = new double[audioSampleHolder.length];
+            tempAudioFrame = new Frame();
+            int totalValues = 0;
+            while (measurementTimestamp < 5000) {
+                System.out.println("TIME: " + measurementTimestamp);
+                measurementTimestamp = System.currentTimeMillis() - timeStart;
+                if ( (totalValues % 4096) == 0 ) {
+                    runOnUiThread(() -> {
+                        @SuppressLint({"MissingInflatedId", "LocalSuppress"}) ConstraintLayout gotYourBackLayout = findViewById(R.id.appScreenID);
+                        gotYourBackLayout.setBackgroundColor(Color.WHITE);
+                    });
+                    audioFrameSwitched = measurementTimestamp;
+                    audioFrames.add(tempAudioFrame);
+                    List<frameMeasurement> tempMeasurements = tempAudioFrame.getFrameMeasurements();
+                    System.out.println("NEW FRAME!");
+                    float increaseCounter = 0;
+                    for(int x = 0; x < tempMeasurements.size(); x++){
+                        if(x > 0){
+                            float prevMeasurement = tempMeasurements.get(x-1).measurement;
+                            if(tempMeasurements.get(x).measurement - prevMeasurement > 0){
+                                increaseCounter = increaseCounter + (tempMeasurements.get(x).measurement - prevMeasurement);
+                                if(increaseCounter > 1500){
+                                    System.out.println("CLOSE STEP DETECTED");
+                                    double[] input = new double[16];
+                                    double[] output = new double[16];
+                                    int inputIndex = 0;
+                                    for(int y = x; y < x+16; y++){
+                                        input[inputIndex] = tempMeasurements.get(y).measurement;
+                                        inputIndex++;
+                                    }
+                                    FFT theFourierTransform = new FFT(16);
+                                    theFourierTransform.fft(input, output);
+                                    for(int index = 0; index < 16; index++){
+                                        System.out.println(output[index]);
+                                    }
+
+                                    runOnUiThread(() -> {
+                                        @SuppressLint({"MissingInflatedId", "LocalSuppress"}) ConstraintLayout gotYourBackLayout = findViewById(R.id.appScreenID);
+                                        gotYourBackLayout.setBackgroundColor(Color.RED);
+                                    });
+                                }
+                                if( (increaseCounter > 1000) && (increaseCounter < 1500) ){
+                                    System.out.println("MEDIUM STEP DETECTED");
+                                    double[] input = new double[16];
+                                    double[] output = new double[16];
+                                    int inputIndex = 0;
+                                    for(int y = x; y < x+16; y++){
+                                        input[inputIndex] = tempMeasurements.get(y).measurement;
+                                        inputIndex++;
+                                    }
+                                    FFT theFourierTransform = new FFT(16);
+                                    theFourierTransform.fft(input, output);
+                                    for(int index = 0; index < 16; index++){
+                                        System.out.println(output[index]);
+                                    }
+                                    runOnUiThread(() -> {
+                                        @SuppressLint({"MissingInflatedId", "LocalSuppress"}) ConstraintLayout gotYourBackLayout = findViewById(R.id.appScreenID);
+                                        gotYourBackLayout.setBackgroundColor(Color.YELLOW);
+                                    });
+                                }
+                                if( (increaseCounter > 500) && (increaseCounter < 1000) ){
+                                    System.out.println("FAR STEP DETECTED");
+                                    double[] input = new double[16];
+                                    double[] output = new double[16];
+                                    int inputIndex = 0;
+                                    for(int y = x; y < x+16; y++){
+                                        input[inputIndex] = tempMeasurements.get(y).measurement;
+                                        inputIndex++;
+                                    }
+                                    FFT theFourierTransform = new FFT(16);
+                                    theFourierTransform.fft(input, output);
+                                    for(int index = 0; index < 16; index++){
+                                        System.out.println(output[index]);
+                                    }
+                                    runOnUiThread(() -> {
+                                        @SuppressLint({"MissingInflatedId", "LocalSuppress"}) ConstraintLayout gotYourBackLayout = findViewById(R.id.appScreenID);
+                                        gotYourBackLayout.setBackgroundColor(Color.GREEN);
+                                    });
+                                }
+                            }
+                            else{
+                                increaseCounter = 0;
+                            }
+                        }
+                    }
+                    for(frameMeasurement tempFrameMeasurement : tempMeasurements){
+                        /*System.out.print(tempFrameMeasurement.audioTimeStamp);
+                        System.out.print(",");
+                        System.out.print(tempFrameMeasurement.measurement + "\n");*/
+                        //System.out.println(tempFrameMeasurement.fftValue);
+                    }
+                    tempAudioFrame = new Frame();
+                }
+                //System.out.println("Timestamp: " + measurementTimestamp);
+                microphoneRecorder.read(audioSampleHolder, 0, audioSampleSize);
+                int bufferIterations = 0;
+                FFToutput = new double[audioSampleHolder.length];
+                for (short audioSample : audioSampleHolder) {
+                    double placeHolder = audioSample;
+                    float floatAudioMeasurement = audioSample;
+                    FFTinput[bufferIterations] = placeHolder;
+                    totalValues++;
+                    audioTime = audioTime + .000125;
+                    frameMeasurement tempFrameMeasurement = new frameMeasurement();
+                    tempFrameMeasurement.measurement = floatAudioMeasurement;
+                    tempFrameMeasurement.audioTimeStamp = audioTime;
+                    tempAudioFrame.addFrameMeasurement(tempFrameMeasurement);
+                    bufferIterations++;
+                }
+                FFT theFourierTransform = new FFT(audioSampleHolder.length);
+                theFourierTransform.fft(FFTinput, FFToutput);
+                int x = 0;
+                for(int y = tempAudioFrame.getFrameMeasurements().size()-512; y < tempAudioFrame.getFrameMeasurements().size(); y++){
+                    tempAudioFrame.getFrameMeasurements().get(y).fftValue = FFToutput[x];
+                    x++;
+                }
+            }
+        }
+    };
+
+
+
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
     }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        if (requestCode == 1) {// If request is cancelled, the result arrays are empty.
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                }
+            }
+        }
+    }
+
 }
 
